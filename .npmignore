@@ -1,0 +1,11 @@
+src/
+.github/
+.autopilot/
+coverage/
+*.tsbuildinfo
+.gitignore
+vitest.config.ts
+tsconfig.json
+.DS_Store
+.env
+.env.*

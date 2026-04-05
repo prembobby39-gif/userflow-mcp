@@ -1,0 +1,70 @@
+{
+  "name": "userflow-mcp",
+  "version": "0.1.0",
+  "mcpName": "io.github.prembobby39-gif/userflow-mcp",
+  "description": "UserFlow MCP — Simulates real users navigating your app with different personas and delivers qualitative UX feedback. Free for Pro plan users.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "userflow-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/**/*",
+    "!dist/__tests__/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "user-testing",
+    "ux-feedback",
+    "persona-testing",
+    "user-flow",
+    "user-simulation",
+    "usability-testing",
+    "puppeteer",
+    "developer-tools",
+    "ux-review",
+    "friction-detection",
+    "onboarding-testing",
+    "cognitive-load",
+    "user-experience",
+    "synthetic-users",
+    "flow-analysis",
+    "userflow"
+  ],
+  "homepage": "https://github.com/prembobby39-gif/userflow-mcp",
+  "bugs": {
+    "url": "https://github.com/prembobby39-gif/userflow-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prembobby39-gif/userflow-mcp.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "puppeteer-core": "^24.0.0",
+    "typescript": "^5.9.3",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.1"
+  }
+}
