@@ -1,6 +1,6 @@
 {
   "name": "userflow-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "mcpName": "io.github.prembobby39-gif/userflow-mcp",
   "description": "UserFlow MCP — Simulates real users navigating your app with different personas and delivers qualitative UX feedback. Free for Pro plan users.",
   "type": "module",
@@ -64,6 +64,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.1.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.1"
   }

@@ -19,9 +19,9 @@ export class SessionRecorder {
   recordStep(params: {
     readonly page: PageSnapshot;
     readonly action: StepAction;
-    readonly thought: string;
-    readonly emotionalState: EmotionalState;
-    readonly frictionPoints: readonly FrictionPoint[];
+    readonly thought?: string;
+    readonly emotionalState?: EmotionalState;
+    readonly frictionPoints?: readonly FrictionPoint[];
     readonly timeSpentMs: number;
   }): SessionStep {
     const step: SessionStep = {
@@ -29,9 +29,9 @@ export class SessionRecorder {
       timestamp: new Date().toISOString(),
       page: params.page,
       action: params.action,
-      thought: params.thought,
-      emotionalState: params.emotionalState,
-      frictionPoints: [...params.frictionPoints],
+      thought: params.thought ?? "",
+      emotionalState: params.emotionalState ?? "neutral",
+      frictionPoints: [...(params.frictionPoints ?? [])],
       timeSpentMs: params.timeSpentMs,
     };
     this.steps.push(step);
