@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.3.1 (2026-04-06)
+
+### HTML Report Overhaul + Auto-Friction Detection
+
+- **Auto-friction detection** — automatically detects friction points from page metrics (performance thresholds, a11y violations, console errors, network failures, layout issues, visible errors). Runs on every step and initial page load. No more near-zero friction scores.
+
+- **Executive summary** — key metrics at a glance: friction score, goal status, steps, time, pages visited, avg accessibility score, JS errors, failed requests.
+
+- **Site-wide page dashboard** — comparison table showing all pages side-by-side with LCP, CLS, a11y score, violations, requests, failed, transfer size, JS errors, and friction count.
+
+- **Aggregated accessibility section** — all violations across the entire session, sorted by impact, with links to axe-core help docs and affected element counts.
+
+- **Network overview** — total requests, failures, transfer size, resource type breakdown, and slowest requests table.
+
+- **Auto-generated recommendations** — data-driven suggestions based on actual metrics instead of generic advice.
+
+- **"Idiot Summary"** — plain-English section at the bottom explaining what's wrong with the website the way a regular user would say it.
+
+- **Sidebar navigation** — fixed left sidebar with jump links to each section, highlights on scroll.
+
+- **Collapsed steps by default** — steps start collapsed with expand/collapse all buttons, reducing initial visual noise.
+
+- **Screenshot compression** — CSS max-height + object-fit for embedded screenshots, reducing visual bloat.
+
+- **Print/PDF optimization** — all steps expand, sidebar hides, sections avoid page breaks.
+
+---
+
 ## v0.3.0 (2026-04-06)
 
 ### Major Upgrade — 12 New Capabilities

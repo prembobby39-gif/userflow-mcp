@@ -13,6 +13,7 @@ import { ConsoleMonitor } from "../utils/console-monitor.js";
 import { injectPerformanceObservers } from "../utils/performance.js";
 import { runAccessibilityAudit } from "../utils/accessibility.js";
 import { inspectStorage } from "../utils/storage-inspector.js";
+import { detectAutoFriction } from "../utils/auto-friction.js";
 import { randomUUID } from "node:crypto";
 
 const NAVIGATION_TIMEOUT = 30_000;
@@ -85,11 +86,11 @@ class SessionManager {
     // Create session
     const sessionId = randomUUID();
     const placeholderPersona: Persona = persona ?? {
-      id: "anonymous",
-      name: "Anonymous User",
-      description: "No persona selected — Claude decides how to behave",
-      background: "",
-      goals: [],
+      id: "default",
+      name: "General User",
+      description: "Average web user with moderate technical skills",
+      background: "Everyday internet user browsing on desktop",
+      goals: ["Complete tasks efficiently", "Find information quickly"],
       traits: {
         techLiteracy: "intermediate",
         patience: "moderate",
@@ -123,6 +124,19 @@ class SessionManager {
       networkMonitor,
       consoleMonitor,
     });
+
+    // Auto-detect friction from initial page metrics
+    const autoFriction = detectAutoFriction(snapshot, 0);
+    if (autoFriction.length > 0) {
+      recorder.recordStep({
+        page: snapshot,
+        action: { type: "navigate", target: url, reasoning: "Initial page load" },
+        thought: "Loading the page for the first time",
+        emotionalState: "neutral",
+        frictionPoints: autoFriction,
+        timeSpentMs: snapshot.loadTimeMs,
+      });
+    }
 
     return { sessionId, persona, page: snapshot };
   }
@@ -158,15 +172,22 @@ class SessionManager {
         lightweight: true,
       });
 
+      // Auto-detect friction from page metrics
+      const stepIndex = session.recorder.getStepCount();
+      const autoFriction = detectAutoFriction(snapshot, stepIndex);
+
       // Build friction points from Claude's notes
-      const frictionPoints: FrictionPoint[] = (input.frictionNotes ?? []).map((note, i) => ({
-        id: `step-${session.recorder.getStepCount()}-friction-${i}`,
+      const manualFriction: FrictionPoint[] = (input.frictionNotes ?? []).map((note, i) => ({
+        id: `step-${stepIndex}-friction-${i}`,
         severity: note.severity,
         description: note.description,
         location: snapshot.url,
         suggestion: note.suggestion,
-        stepIndex: session.recorder.getStepCount(),
+        stepIndex,
       }));
+
+      // Merge auto-detected + manual friction
+      const frictionPoints: FrictionPoint[] = [...autoFriction, ...manualFriction];
 
       // Record the step
       session.recorder.recordStep({

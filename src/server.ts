@@ -58,7 +58,7 @@ function serializePageState(page: PageSnapshot): string {
 export function createServer(): McpServer {
   const server = new McpServer({
     name: "userflow-mcp",
-    version: "0.3.0",
+    version: "0.3.1",
   });
 
   // ═══════════════════════════════════════════════════════════════
