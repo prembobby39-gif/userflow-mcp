@@ -1,4 +1,5 @@
 import type { Page } from "puppeteer-core";
+import { resolveSelector } from "./selector-engine.js";
 
 const DEFAULT_WAIT_TIMEOUT = 5000;
 const POST_ACTION_DELAY = 1500;
@@ -14,6 +15,39 @@ export interface ActionInput {
 export interface ActionResult {
   readonly success: boolean;
   readonly error: string | null;
+  /** The resolved selector that actually worked (may differ from input target). */
+  readonly resolvedSelector?: string;
+}
+
+/**
+ * Wait for and resolve a selector, trying smart fallbacks if the primary fails.
+ * Returns the selector string that worked, or throws.
+ */
+async function waitForTarget(page: Page, target: string): Promise<string> {
+  // First try direct waitForSelector (fast path)
+  try {
+    await page.waitForSelector(target, { visible: true, timeout: DEFAULT_WAIT_TIMEOUT });
+    return target;
+  } catch {
+    // Primary selector failed — try smart selector resolution
+  }
+
+  // Use resolveSelector which tries multiple strategies
+  const handle = await resolveSelector(page, target, [], 3_000);
+  if (handle) {
+    // Get the selector that worked by evaluating back to a CSS path
+    const resolvedSel = await page.evaluate((el: Element) => {
+      if (el.id) return `#${el.id}`;
+      if (el.getAttribute("data-testid")) return `[data-testid="${el.getAttribute("data-testid")}"]`;
+      if (el.getAttribute("name")) return `[name="${el.getAttribute("name")}"]`;
+      return "";
+    }, handle);
+    if (resolvedSel) return resolvedSel;
+    // Fallback: return the original target and hope for the best
+    return target;
+  }
+
+  throw new Error(`Element not found: ${target}`);
 }
 
 /**
@@ -25,19 +59,19 @@ export async function executeAction(page: Page, action: ActionInput): Promise<Ac
     switch (action.type) {
       case "click": {
         if (!action.target) return { success: false, error: "click requires a target selector" };
-        await page.waitForSelector(action.target, { visible: true, timeout: DEFAULT_WAIT_TIMEOUT });
-        await page.click(action.target);
+        const resolved = await waitForTarget(page, action.target);
+        await page.click(resolved);
         await new Promise((resolve) => setTimeout(resolve, POST_ACTION_DELAY));
-        return { success: true, error: null };
+        return { success: true, error: null, resolvedSelector: resolved };
       }
 
       case "type": {
         if (!action.target) return { success: false, error: "type requires a target selector" };
         if (!action.value) return { success: false, error: "type requires a value" };
-        await page.waitForSelector(action.target, { visible: true, timeout: DEFAULT_WAIT_TIMEOUT });
-        await page.click(action.target, { count: 3 });
-        await page.type(action.target, action.value);
-        return { success: true, error: null };
+        const resolved = await waitForTarget(page, action.target);
+        await page.click(resolved, { count: 3 });
+        await page.type(resolved, action.value);
+        return { success: true, error: null, resolvedSelector: resolved };
       }
 
       case "scroll": {
@@ -63,17 +97,17 @@ export async function executeAction(page: Page, action: ActionInput): Promise<Ac
       case "select": {
         if (!action.target) return { success: false, error: "select requires a target selector" };
         if (!action.value) return { success: false, error: "select requires a value" };
-        await page.waitForSelector(action.target, { timeout: DEFAULT_WAIT_TIMEOUT });
-        await page.select(action.target, action.value);
-        return { success: true, error: null };
+        const resolved = await waitForTarget(page, action.target);
+        await page.select(resolved, action.value);
+        return { success: true, error: null, resolvedSelector: resolved };
       }
 
       case "hover": {
         if (!action.target) return { success: false, error: "hover requires a target selector" };
-        await page.waitForSelector(action.target, { visible: true, timeout: DEFAULT_WAIT_TIMEOUT });
-        await page.hover(action.target);
+        const resolved = await waitForTarget(page, action.target);
+        await page.hover(resolved);
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return { success: true, error: null };
+        return { success: true, error: null, resolvedSelector: resolved };
       }
 
       case "press_key": {

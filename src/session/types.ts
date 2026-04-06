@@ -1,6 +1,8 @@
 import type { Page } from "puppeteer-core";
 import type { Persona, EmotionalState, FrictionSeverity, PageSnapshot } from "../types.js";
 import type { SessionRecorder } from "../walker/session-recorder.js";
+import type { NetworkMonitor } from "../utils/network-monitor.js";
+import type { ConsoleMonitor } from "../utils/console-monitor.js";
 
 export interface LiveSession {
   readonly id: string;
@@ -10,6 +12,8 @@ export interface LiveSession {
   readonly viewport: { readonly width: number; readonly height: number };
   readonly createdAt: string;
   locked: boolean;
+  readonly networkMonitor: NetworkMonitor;
+  readonly consoleMonitor: ConsoleMonitor;
 }
 
 export interface StepInput {

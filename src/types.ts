@@ -57,6 +57,12 @@ export interface PageSnapshot {
   readonly buttons: readonly PageElement[];
   readonly errorMessages: readonly string[];
   readonly loadTimeMs: number;
+  // v0.3 additions (optional for backward compat)
+  readonly console?: ConsoleSummary;
+  readonly network?: NetworkSummary;
+  readonly performance?: PerformanceMetrics;
+  readonly accessibility?: AccessibilityReport;
+  readonly storage?: StorageData;
 }
 
 export interface StepAction {
@@ -222,24 +228,141 @@ export interface ScreenshotResult {
   readonly timestamp: string;
 }
 
-// ── Browser Capture Types ──────────────────────────────────────
+// ── Smart Selector Types ──────────────────────────────────────
 
-export type ConsoleLevel = "log" | "warn" | "error" | "info" | "debug";
+export type SelectorStrategy = "testid" | "id" | "aria" | "role-text" | "input-attr" | "link-href" | "text" | "css";
 
-export interface ConsoleEntry {
-  readonly level: ConsoleLevel;
-  readonly text: string;
-  readonly timestamp: string;
-  readonly location?: string;
+export interface SmartSelector {
+  readonly primary: string;
+  readonly fallbacks: readonly string[];
+  readonly description: string;
+  readonly strategy: SelectorStrategy;
 }
 
-export interface ConsoleCaptureResult {
-  readonly url: string;
-  readonly timestamp: string;
-  readonly entries: readonly ConsoleEntry[];
-  readonly uncaughtExceptions: readonly string[];
-  readonly totalCount: number;
-  readonly countByLevel: Readonly<Record<ConsoleLevel, number>>;
+// ── Device Profile Types ─────────────────────────────────────
+
+export interface DeviceProfile {
+  readonly name: string;
+  readonly viewport: { readonly width: number; readonly height: number };
+  readonly userAgent: string;
+  readonly deviceScaleFactor: number;
+  readonly isMobile: boolean;
+  readonly hasTouch: boolean;
+}
+
+// ── Performance Metrics Types ────────────────────────────────
+
+export type WebVitalRating = "good" | "needs-improvement" | "poor" | null;
+
+export interface PerformanceMetrics {
+  // Core Web Vitals
+  readonly lcp: number | null;
+  readonly cls: number | null;
+  readonly inp: number | null;
+  // Loading
+  readonly fcp: number | null;
+  readonly ttfb: number | null;
+  readonly domContentLoaded: number | null;
+  readonly domComplete: number | null;
+  // Resources
+  readonly resourceCount: number;
+  readonly totalResourceSize: number;
+  // Ratings
+  readonly lcpRating: WebVitalRating;
+  readonly clsRating: WebVitalRating;
+  readonly inpRating: WebVitalRating;
+}
+
+// ── Accessibility Types ──────────────────────────────────────
+
+export type A11yImpact = "minor" | "moderate" | "serious" | "critical";
+
+export interface AccessibilityViolation {
+  readonly id: string;
+  readonly impact: A11yImpact;
+  readonly description: string;
+  readonly help: string;
+  readonly helpUrl: string;
+  readonly affectedNodes: number;
+  readonly wcagCriteria: readonly string[];
+  readonly target: readonly string[];
+}
+
+export interface AccessibilityReport {
+  readonly score: number;
+  readonly violations: readonly AccessibilityViolation[];
+  readonly passes: number;
+  readonly incomplete: number;
+  readonly violationsByImpact: {
+    readonly critical: number;
+    readonly serious: number;
+    readonly moderate: number;
+    readonly minor: number;
+  };
+  readonly wcagLevel: string;
+}
+
+// ── Storage Types ────────────────────────────────────────────
+
+export interface CookieInfo {
+  readonly name: string;
+  readonly domain: string;
+  readonly path: string;
+  readonly secure: boolean;
+  readonly httpOnly: boolean;
+  readonly sameSite: string;
+  readonly expires: number | null;
+  readonly size: number;
+}
+
+export interface StorageData {
+  readonly cookies: readonly CookieInfo[];
+  readonly localStorage: Readonly<Record<string, string>>;
+  readonly sessionStorage: Readonly<Record<string, string>>;
+  readonly cookieCount: number;
+  readonly localStorageKeys: number;
+  readonly sessionStorageKeys: number;
+  readonly trackingCookies: readonly CookieInfo[];
+  readonly totalCookieSize: number;
+}
+
+// ── Screenshot Diff Types ────────────────────────────────────
+
+export interface ScreenshotDiff {
+  readonly matchPercentage: number;
+  readonly diffPixels: number;
+  readonly totalPixels: number;
+  readonly dimensions: { readonly width: number; readonly height: number };
+  readonly diffImage: string;
+}
+
+// ── Console & Network Monitor Types ──────────────────────────
+
+export type ConsoleLevel = "log" | "warn" | "error" | "info" | "debug" | "trace";
+
+export interface ConsoleMessage {
+  readonly level: ConsoleLevel;
+  readonly text: string;
+  readonly timestamp: number;
+  readonly url?: string;
+  readonly lineNumber?: number;
+  readonly columnNumber?: number;
+}
+
+export interface PageError {
+  readonly message: string;
+  readonly stack?: string;
+  readonly timestamp: number;
+}
+
+export interface ConsoleSummary {
+  readonly total: number;
+  readonly errors: number;
+  readonly warnings: number;
+  readonly infos: number;
+  readonly pageErrors: number;
+  readonly messages: readonly ConsoleMessage[];
+  readonly criticalErrors: readonly ConsoleMessage[];
 }
 
 export interface NetworkEntry {
@@ -247,42 +370,55 @@ export interface NetworkEntry {
   readonly method: string;
   readonly resourceType: string;
   readonly status: number;
-  readonly size: number;
+  readonly statusText: string;
+  readonly mimeType: string;
+  readonly responseSize: number;
+  readonly startTime: number;
+  readonly endTime: number;
   readonly duration: number;
   readonly failed: boolean;
-  readonly failureReason?: string;
+  readonly errorText?: string;
 }
 
 export interface NetworkSummary {
   readonly totalRequests: number;
   readonly failedRequests: number;
+  readonly blockedRequests: number;
   readonly totalTransferSize: number;
-  readonly byType: readonly { readonly type: string; readonly count: number; readonly totalSize: number }[];
+  readonly byResourceType: Readonly<Record<string, number>>;
+  readonly byStatus: Readonly<Record<string, number>>;
+  readonly slowestRequests: readonly NetworkEntry[];
+  readonly averageResponseTime: number;
 }
 
-export interface NetworkCaptureResult {
-  readonly url: string;
-  readonly timestamp: string;
-  readonly entries: readonly NetworkEntry[];
-  readonly summary: NetworkSummary;
+export interface HarEntry {
+  readonly startedDateTime: string;
+  readonly time: number;
+  readonly request: {
+    readonly method: string;
+    readonly url: string;
+    readonly headers: readonly { readonly name: string; readonly value: string }[];
+  };
+  readonly response: {
+    readonly status: number;
+    readonly statusText: string;
+    readonly headers: readonly { readonly name: string; readonly value: string }[];
+    readonly content: { readonly size: number; readonly mimeType: string };
+  };
+  readonly timings: { readonly wait: number; readonly receive: number };
 }
+
+export interface HarLog {
+  readonly log: {
+    readonly version: string;
+    readonly creator: { readonly name: string; readonly version: string };
+    readonly entries: readonly HarEntry[];
+  };
+}
+
+// ── Legacy Browser Capture Types (backward compat) ───────────
 
 export type PageErrorKind = "exception" | "unhandled-rejection" | "resource-load-failure";
-
-export interface PageError {
-  readonly kind: PageErrorKind;
-  readonly message: string;
-  readonly timestamp: string;
-  readonly source?: string;
-}
-
-export interface ErrorCaptureResult {
-  readonly url: string;
-  readonly timestamp: string;
-  readonly errors: readonly PageError[];
-  readonly totalCount: number;
-  readonly countByKind: Readonly<Record<PageErrorKind, number>>;
-}
 
 // ── Tool Result Types ──────────────────────────────────────────
 

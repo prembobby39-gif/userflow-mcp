@@ -1,12 +1,18 @@
 import type { Page } from "puppeteer-core";
-import type { Persona, PageSnapshot, UserSession, FrictionPoint } from "../types.js";
+import type { Persona, PageSnapshot, UserSession, FrictionPoint, AccessibilityReport, StorageData, NetworkSummary } from "../types.js";
 import type { LiveSession, StepInput, StepResult } from "./types.js";
+import type { HarLog } from "../utils/network-monitor.js";
 import { getBrowser } from "../utils/browser.js";
 import { extractPageSnapshot } from "../utils/page-snapshot.js";
 import { executeAction } from "../utils/actions.js";
 import { SessionRecorder } from "../walker/session-recorder.js";
 import { resolvePersona } from "../personas/engine.js";
 import { getViewport } from "../personas/engine.js";
+import { NetworkMonitor } from "../utils/network-monitor.js";
+import { ConsoleMonitor } from "../utils/console-monitor.js";
+import { injectPerformanceObservers } from "../utils/performance.js";
+import { runAccessibilityAudit } from "../utils/accessibility.js";
+import { inspectStorage } from "../utils/storage-inspector.js";
 import { randomUUID } from "node:crypto";
 
 const NAVIGATION_TIMEOUT = 30_000;
@@ -63,6 +69,16 @@ class SessionManager {
       deviceScaleFactor: deviceScaleFactor ?? DEFAULT_SCALE_FACTOR,
     });
 
+    // Attach monitors BEFORE navigation so they capture everything
+    const networkMonitor = new NetworkMonitor();
+    networkMonitor.attach(page);
+
+    const consoleMonitor = new ConsoleMonitor();
+    consoleMonitor.attach(page);
+
+    // Inject performance observers before navigation
+    await injectPerformanceObservers(page);
+
     // Navigate to starting URL
     await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT });
 
@@ -96,12 +112,17 @@ class SessionManager {
       viewport: finalViewport,
       createdAt: new Date().toISOString(),
       locked: false,
+      networkMonitor,
+      consoleMonitor,
     };
 
     this.sessions.set(sessionId, session);
 
-    // Extract initial snapshot
-    const snapshot = await extractPageSnapshot(page);
+    // Extract initial snapshot (full audit on first page)
+    const snapshot = await extractPageSnapshot(page, {
+      networkMonitor,
+      consoleMonitor,
+    });
 
     return { sessionId, persona, page: snapshot };
   }
@@ -130,8 +151,12 @@ class SessionManager {
         scrollAmount: input.scrollAmount,
       });
 
-      // Extract new page state
-      const snapshot = await extractPageSnapshot(session.page);
+      // Extract new page state (lightweight for step speed — no a11y/storage per step)
+      const snapshot = await extractPageSnapshot(session.page, {
+        networkMonitor: session.networkMonitor,
+        consoleMonitor: session.consoleMonitor,
+        lightweight: true,
+      });
 
       // Build friction points from Claude's notes
       const frictionPoints: FrictionPoint[] = (input.frictionNotes ?? []).map((note, i) => ({
@@ -174,7 +199,11 @@ class SessionManager {
    */
   async getPageState(sessionId: string, fullPage?: boolean): Promise<PageSnapshot> {
     const session = this.getSessionOrThrow(sessionId);
-    return extractPageSnapshot(session.page, { fullPage });
+    return extractPageSnapshot(session.page, {
+      fullPage,
+      networkMonitor: session.networkMonitor,
+      consoleMonitor: session.consoleMonitor,
+    });
   }
 
   /**
@@ -186,6 +215,10 @@ class SessionManager {
     summaryNotes?: string
   ): Promise<UserSession> {
     const session = this.getSessionOrThrow(sessionId);
+
+    // Detach monitors before closing
+    session.networkMonitor.detach();
+    session.consoleMonitor.detach();
 
     try {
       // Close the browser page
@@ -234,6 +267,41 @@ class SessionManager {
         this.sessions.delete(id);
       }
     }
+  }
+
+  /**
+   * Run an accessibility audit on the current page of a session.
+   */
+  async runAccessibilityAudit(
+    sessionId: string,
+    wcagLevel?: "wcag2a" | "wcag2aa" | "wcag2aaa"
+  ): Promise<AccessibilityReport> {
+    const session = this.getSessionOrThrow(sessionId);
+    return runAccessibilityAudit(session.page, { wcagLevel });
+  }
+
+  /**
+   * Inspect browser storage (cookies, localStorage, sessionStorage) for a session.
+   */
+  async inspectStorage(sessionId: string): Promise<StorageData> {
+    const session = this.getSessionOrThrow(sessionId);
+    return inspectStorage(session.page);
+  }
+
+  /**
+   * Get network summary for a session.
+   */
+  getNetworkSummary(sessionId: string): NetworkSummary {
+    const session = this.getSessionOrThrow(sessionId);
+    return session.networkMonitor.getSummary();
+  }
+
+  /**
+   * Export HAR log for a session's network activity.
+   */
+  exportHar(sessionId: string): HarLog {
+    const session = this.getSessionOrThrow(sessionId);
+    return session.networkMonitor.toHAR();
   }
 
   /**

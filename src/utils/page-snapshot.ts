@@ -1,14 +1,27 @@
 import type { Page } from "puppeteer-core";
 import type { PageSnapshot, PageElement } from "../types.js";
+import type { NetworkMonitor } from "./network-monitor.js";
+import type { ConsoleMonitor } from "./console-monitor.js";
+import { collectPerformanceMetrics } from "./performance.js";
+import { runAccessibilityAudit } from "./accessibility.js";
+import { inspectStorage } from "./storage-inspector.js";
+
+export interface SnapshotOptions {
+  readonly fullPage?: boolean;
+  readonly networkMonitor?: NetworkMonitor;
+  readonly consoleMonitor?: ConsoleMonitor;
+  /** Skip heavy audits (accessibility, storage) for faster snapshots during steps. */
+  readonly lightweight?: boolean;
+}
 
 /**
  * Extract a full snapshot of the current page state.
- * Gathers all interactive elements, text content, headings, error messages, etc.
- * Shared between session manager (step-by-step) and legacy flow walker (auto_walk).
+ * Gathers all interactive elements, text content, headings, error messages,
+ * plus optional v0.3 data: performance metrics, accessibility, network, console, storage.
  */
 export async function extractPageSnapshot(
   page: Page,
-  options?: { readonly fullPage?: boolean }
+  options?: SnapshotOptions
 ): Promise<PageSnapshot> {
   const startTime = Date.now();
 
@@ -103,6 +116,42 @@ export async function extractPageSnapshot(
 
   const loadTimeMs = Date.now() - startTime;
 
+  // ── v0.3 enrichment: collect performance, network, console, storage, a11y ──
+
+  // Performance metrics (always collected — lightweight)
+  let performance = undefined;
+  try {
+    performance = await collectPerformanceMetrics(page);
+  } catch {
+    // Performance collection may fail on some pages — graceful degradation
+  }
+
+  // Network summary (from monitor if available)
+  const network = options?.networkMonitor?.getSummary() ?? undefined;
+
+  // Console summary (from monitor if available)
+  const console = options?.consoleMonitor?.getSummary() ?? undefined;
+
+  // Accessibility audit (skip in lightweight mode to keep step speed)
+  let accessibility = undefined;
+  if (!options?.lightweight) {
+    try {
+      accessibility = await runAccessibilityAudit(page);
+    } catch {
+      // axe-core injection may fail on some pages
+    }
+  }
+
+  // Storage inspection (skip in lightweight mode)
+  let storage = undefined;
+  if (!options?.lightweight) {
+    try {
+      storage = await inspectStorage(page);
+    } catch {
+      // Storage inspection may fail on cross-origin pages
+    }
+  }
+
   return {
     url,
     title,
@@ -116,5 +165,10 @@ export async function extractPageSnapshot(
     buttons: pageData.buttons as PageElement[],
     errorMessages: pageData.errorMessages,
     loadTimeMs,
+    performance,
+    network,
+    console,
+    accessibility,
+    storage,
   };
 }

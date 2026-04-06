@@ -1,4 +1,4 @@
-import type { UserSession, SessionStep, FrictionPoint, EmotionalState } from "../types.js";
+import type { UserSession, SessionStep, FrictionPoint, EmotionalState, PerformanceMetrics, AccessibilityReport, NetworkSummary, ConsoleSummary } from "../types.js";
 import { analyzeEmotionalArc, summarizeEmotionalArc } from "../analysis/emotional-arc.js";
 import { assessCognitiveLoad } from "../analysis/cognitive-load.js";
 import { assessClarity } from "../analysis/clarity.js";
@@ -54,6 +54,79 @@ export function generateSessionReport(session: UserSession): string {
   lines.push(`| Emotional trend | ${arc.trend} |`);
   lines.push(``);
 
+  // ── v0.3: Performance Metrics (from first step snapshot) ──
+  const firstPerf = steps[0]?.page.performance;
+  if (firstPerf) {
+    lines.push(`## Core Web Vitals`);
+    lines.push(``);
+    lines.push(`| Metric | Value | Rating |`);
+    lines.push(`|--------|-------|--------|`);
+    if (firstPerf.lcp !== null) lines.push(`| LCP | ${firstPerf.lcp.toFixed(0)}ms | ${ratingEmoji(firstPerf.lcpRating)} ${firstPerf.lcpRating ?? "—"} |`);
+    if (firstPerf.cls !== null) lines.push(`| CLS | ${firstPerf.cls.toFixed(3)} | ${ratingEmoji(firstPerf.clsRating)} ${firstPerf.clsRating ?? "—"} |`);
+    if (firstPerf.inp !== null) lines.push(`| INP | ${firstPerf.inp.toFixed(0)}ms | ${ratingEmoji(firstPerf.inpRating)} ${firstPerf.inpRating ?? "—"} |`);
+    if (firstPerf.fcp !== null) lines.push(`| FCP | ${firstPerf.fcp.toFixed(0)}ms | — |`);
+    if (firstPerf.ttfb !== null) lines.push(`| TTFB | ${firstPerf.ttfb.toFixed(0)}ms | — |`);
+    lines.push(`| Resources | ${firstPerf.resourceCount} files (${(firstPerf.totalResourceSize / 1024).toFixed(0)}KB) | — |`);
+    lines.push(``);
+  }
+
+  // ── v0.3: Accessibility (from first step snapshot) ──
+  const firstA11y = steps[0]?.page.accessibility;
+  if (firstA11y) {
+    lines.push(`## Accessibility (${firstA11y.wcagLevel})`);
+    lines.push(``);
+    lines.push(`**Score:** ${firstA11y.score}/100 | **Violations:** ${firstA11y.violations.length} | **Passes:** ${firstA11y.passes}`);
+    lines.push(``);
+    if (firstA11y.violations.length > 0) {
+      lines.push(`| Impact | Issue | Help | Affected |`);
+      lines.push(`|--------|-------|------|----------|`);
+      for (const v of firstA11y.violations.slice(0, 10)) {
+        lines.push(`| ${impactEmoji(v.impact)} ${v.impact} | ${v.description} | [${v.id}](${v.helpUrl}) | ${v.affectedNodes} nodes |`);
+      }
+      if (firstA11y.violations.length > 10) {
+        lines.push(`| … | +${firstA11y.violations.length - 10} more violations | | |`);
+      }
+      lines.push(``);
+    }
+  }
+
+  // ── v0.3: Network Summary (from first step snapshot) ──
+  const firstNet = steps[0]?.page.network;
+  if (firstNet && firstNet.totalRequests > 0) {
+    lines.push(`## Network`);
+    lines.push(``);
+    lines.push(`| Metric | Value |`);
+    lines.push(`|--------|-------|`);
+    lines.push(`| Total requests | ${firstNet.totalRequests} |`);
+    lines.push(`| Failed requests | ${firstNet.failedRequests > 0 ? `🛑 ${firstNet.failedRequests}` : "0"} |`);
+    lines.push(`| Transfer size | ${(firstNet.totalTransferSize / 1024).toFixed(0)}KB |`);
+    lines.push(`| Avg response time | ${firstNet.averageResponseTime.toFixed(0)}ms |`);
+    lines.push(``);
+    if (firstNet.slowestRequests.length > 0) {
+      lines.push(`**Slowest requests:**`);
+      for (const req of firstNet.slowestRequests.slice(0, 3)) {
+        const shortUrl = req.url.length > 80 ? req.url.slice(0, 80) + "…" : req.url;
+        lines.push(`- ${req.duration.toFixed(0)}ms — \`${shortUrl}\``);
+      }
+      lines.push(``);
+    }
+  }
+
+  // ── v0.3: Console Errors (from first step snapshot) ──
+  const firstConsole = steps[0]?.page.console;
+  if (firstConsole && (firstConsole.errors > 0 || firstConsole.pageErrors > 0)) {
+    lines.push(`## Console Errors`);
+    lines.push(``);
+    lines.push(`⚠️ **${firstConsole.errors} JS errors**, ${firstConsole.warnings} warnings, ${firstConsole.pageErrors} uncaught exceptions`);
+    lines.push(``);
+    if (firstConsole.criticalErrors.length > 0) {
+      for (const err of firstConsole.criticalErrors.slice(0, 5)) {
+        lines.push(`- \`${err.text.slice(0, 150)}\``);
+      }
+      lines.push(``);
+    }
+  }
+
   // Emotional journey
   lines.push(`## Emotional Journey`);
   lines.push(``);
@@ -80,6 +153,18 @@ export function generateSessionReport(session: UserSession): string {
       const clarity = assessClarity(step.page);
       lines.push(`📊 Cognitive Load: ${cogLoad.score}/10 (${cogLoad.visualComplexity}) | Clarity: ${clarity.score}/10`);
       lines.push(``);
+    }
+
+    // Step-level performance (if available)
+    if (step.page.performance && step.index > 0) {
+      const perf = step.page.performance;
+      const parts: string[] = [];
+      if (perf.lcp !== null) parts.push(`LCP: ${perf.lcp.toFixed(0)}ms`);
+      if (perf.cls !== null) parts.push(`CLS: ${perf.cls.toFixed(3)}`);
+      if (parts.length > 0) {
+        lines.push(`⚡ ${parts.join(" | ")}`);
+        lines.push(``);
+      }
     }
 
     // Friction points
@@ -158,4 +243,18 @@ function frictionLabel(score: number): string {
   if (score <= 6) return "(High — significant friction)";
   if (score <= 8) return "(Very High — likely abandonment)";
   return "(Critical — broken experience)";
+}
+
+function ratingEmoji(rating: string | null): string {
+  if (rating === "good") return "🟢";
+  if (rating === "needs-improvement") return "🟡";
+  if (rating === "poor") return "🔴";
+  return "⚪";
+}
+
+function impactEmoji(impact: string): string {
+  if (impact === "critical") return "🚨";
+  if (impact === "serious") return "🛑";
+  if (impact === "moderate") return "⚠️";
+  return "💡";
 }
