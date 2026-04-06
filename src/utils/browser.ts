@@ -60,12 +60,34 @@ function findChromePath(): string {
 
 /**
  * Get or create a shared browser instance.
+ *
+ * Connection priority:
+ * 1. CHROME_WS_ENDPOINT env var — connect to existing browser via WebSocket
+ * 2. CHROME_CDP_URL env var — connect via CDP HTTP endpoint (e.g. http://localhost:9222)
+ * 3. Launch a fresh headless Chrome
+ *
+ * Using options 1 or 2 preserves the user's login sessions and cookies.
  */
 export async function getBrowser(): Promise<Browser> {
   if (browserInstance && browserInstance.connected) {
     return browserInstance;
   }
 
+  // Option 1: Direct WebSocket endpoint
+  const wsEndpoint = process.env.CHROME_WS_ENDPOINT;
+  if (wsEndpoint) {
+    browserInstance = await puppeteer.connect({ browserWSEndpoint: wsEndpoint });
+    return browserInstance;
+  }
+
+  // Option 2: CDP URL (auto-discovers WebSocket endpoint)
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  if (cdpUrl) {
+    browserInstance = await puppeteer.connect({ browserURL: cdpUrl });
+    return browserInstance;
+  }
+
+  // Option 3: Launch fresh headless Chrome
   const executablePath = findChromePath();
 
   browserInstance = await puppeteer.launch({
@@ -130,13 +152,19 @@ export async function closePage(page: Page): Promise<void> {
 
 /**
  * Shut down the shared browser instance.
+ * If connected via CDP, disconnects without closing the user's browser.
  */
 export async function closeBrowser(): Promise<void> {
   if (browserInstance) {
+    const isRemote = !!(process.env.CHROME_WS_ENDPOINT || process.env.CHROME_CDP_URL);
     try {
-      await browserInstance.close();
+      if (isRemote) {
+        browserInstance.disconnect();
+      } else {
+        await browserInstance.close();
+      }
     } catch {
-      // Browser may already be closed
+      // Browser may already be closed/disconnected
     }
     browserInstance = null;
   }
