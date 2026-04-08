@@ -2,7 +2,7 @@
 
 **Simulates real users navigating your app and delivers qualitative UX feedback.** Built as an MCP server for Claude Code.
 
-UserFlow puts itself in your user's shoes. It clicks through your app as different personas (a first-time user, a busy executive, a senior citizen, an accessibility-dependent user) and tells you where they'd get confused, frustrated, or give up. Now with Core Web Vitals, WCAG accessibility auditing, network monitoring, and device emulation.
+UserFlow puts itself in your user's shoes. It clicks through your app as different personas (a first-time user, a busy executive, a senior citizen, an accessibility-dependent user) and tells you where they'd get confused, frustrated, or give up. Now with auto-friction detection, Core Web Vitals, WCAG accessibility auditing, network monitoring, device emulation, and rich HTML reports with dev recommendations.
 
 > **Free for Claude Pro users.** No API keys, no external services. Just install and go.
 
@@ -58,6 +58,16 @@ Step 2: Signup (12.1s)
      → Remove non-essential fields from signup, ask later during onboarding
 ```
 
+### Auto-Friction Detection
+
+Friction is automatically detected from page metrics on every step — no manual annotation needed:
+
+- **Performance**: LCP > 2.5s, CLS > 0.1, FCP > 3s
+- **Accessibility**: Critical/serious axe-core violations, score < 50
+- **Console**: JS errors, uncaught exceptions
+- **Network**: Failed requests, pages > 5MB transfer
+- **Content**: Missing headings, 50+ interactive elements (cognitive overload), visible error messages
+
 ### Core Web Vitals & Performance
 
 ```
@@ -77,6 +87,20 @@ Score: 82/100 | Violations: 5 (0 critical, 2 serious, 2 moderate, 1 minor)
 | serious | [color-contrast] Insufficient contrast ratio | 12 nodes |
 | serious | [image-alt] Missing alt text on images | 3 nodes |
 ```
+
+### Rich HTML Reports
+
+The `end_session` tool generates standalone HTML reports with:
+
+- **Executive summary** — key metrics at a glance (friction score, goal status, steps, time, pages, a11y score, JS errors, failed requests)
+- **Site-wide page dashboard** — comparison table of all pages with LCP, CLS, a11y, requests, errors
+- **Emotional journey** — color-coded chart with legend, tooltips, and plain English summary
+- **Step-by-step walkthrough** — collapsible steps with embedded screenshots
+- **Aggregated accessibility** — all WCAG violations across the session, sorted by impact, with axe-core help links
+- **Network overview** — total requests, failures, transfer size, resource breakdown, slowest requests
+- **Dev recommendations** — P0/P1/P2 prioritized fixes with code examples (LCP, CLS, contrast, labels, errors, cookies, headings)
+- **"Idiot summary"** — plain English section explaining what's wrong the way a regular user would say it
+- **Print/PDF optimized** — all steps expand, sidebar hides, sections avoid page breaks
 
 ## 14 Tools
 
@@ -188,6 +212,7 @@ src/
     ├── page-snapshot.ts       # Full page state extraction + v0.3 enrichment
     ├── actions.ts             # Action execution with smart selector fallback
     ├── selector-engine.ts     # 8-strategy smart selector generation
+    ├── auto-friction.ts       # Auto-detect friction from page metrics
     ├── network-monitor.ts     # Request/response tracking + HAR export
     ├── console-monitor.ts     # Console message + page error capture
     ├── performance.ts         # Core Web Vitals via PerformanceObserver
@@ -214,6 +239,21 @@ npm test          # 42 tests
 ```
 
 ## Changelog
+
+### v0.3.1
+
+- **Auto-friction detection** — automatically detects friction from page metrics (performance thresholds, a11y violations, console errors, network failures, layout issues, visible errors). Runs on every step and initial page load.
+- **Executive summary** — key metrics at a glance in HTML reports
+- **Site-wide page dashboard** — comparison table showing all pages side-by-side with LCP, CLS, a11y, violations, requests, errors
+- **Aggregated accessibility section** — all violations across the session, sorted by impact, with axe-core help links
+- **Network overview** — total requests, failures, transfer size, resource breakdown, slowest requests
+- **Dev recommendations** — P0/P1/P2 prioritized actionable fixes with code examples
+- **"Idiot summary"** — plain English section explaining what's wrong the way a regular user would say it
+- **Emotional journey improvements** — color legend, descriptive tooltips, plain English summary
+- **Sidebar navigation** — fixed left sidebar with jump links, highlights on scroll
+- **Collapsed steps** — steps start collapsed with expand/collapse all buttons
+- **Screenshot compression** — CSS max-height + object-fit for embedded screenshots
+- **Print/PDF optimization** — all steps expand, sidebar hides, sections avoid page breaks
 
 ### v0.3.0
 
