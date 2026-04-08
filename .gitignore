@@ -8,3 +8,4 @@ coverage/
 .autopilot/
 .uimax-history.json
 .userflow-sessions/
+reports/
