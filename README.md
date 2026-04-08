@@ -234,9 +234,12 @@ src/
 git clone https://github.com/prembobby39-gif/userflow-mcp.git
 cd userflow-mcp
 npm install
-npm run build
+npm run build     # compiles TypeScript to dist/
 npm test          # 42 tests
+npm start         # run the MCP server
 ```
+
+> **Note for contributors:** You must run `npm run build` after cloning — the `dist/` directory is not committed to git. Requires Node.js >= 18 and Google Chrome installed.
 
 ## Changelog
 

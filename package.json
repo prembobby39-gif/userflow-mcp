@@ -16,7 +16,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
@@ -61,7 +61,6 @@
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
     "puppeteer-core": "^24.0.0",
-    "typescript": "^5.9.3",
     "zod": "^3.24.0"
   },
   "devDependencies": {

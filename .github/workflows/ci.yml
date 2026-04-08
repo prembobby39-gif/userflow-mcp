@@ -28,7 +28,6 @@ jobs:
         run: npm run build
 
       - name: Run tests
-        if: matrix.node-version != 18
         run: npm test
 
   publish:

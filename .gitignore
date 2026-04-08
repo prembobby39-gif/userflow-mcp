@@ -9,3 +9,6 @@ coverage/
 .uimax-history.json
 .userflow-sessions/
 reports/
+test-*.mjs
+test-*.ts
+!src/__tests__/**
